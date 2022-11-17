@@ -7,12 +7,12 @@
     "title": "InstantiateMsg",
     "type": "object",
     "required": [
-      "app",
+      "app_components",
       "name",
       "primitive_contract"
     ],
     "properties": {
-      "app": {
+      "app_components": {
         "type": "array",
         "items": {
           "$ref": "#/definitions/AppComponent"

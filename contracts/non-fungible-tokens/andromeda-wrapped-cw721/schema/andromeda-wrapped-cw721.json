@@ -585,6 +585,19 @@
           }
         },
         "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "n_f_t_contract_address"
+        ],
+        "properties": {
+          "n_f_t_contract_address": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
       }
     ],
     "definitions": {
@@ -906,6 +919,11 @@
           "type": "string"
         }
       }
+    },
+    "n_f_t_contract_address": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "String",
+      "type": "string"
     }
   }
 }

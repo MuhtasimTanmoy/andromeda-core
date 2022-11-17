@@ -318,6 +318,19 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "minter"
+      ],
+      "properties": {
+        "minter": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
@@ -932,6 +945,19 @@
                   "$ref": "#/definitions/QueryMsg"
                 }
               },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "minter"
+          ],
+          "properties": {
+            "minter": {
+              "type": "object",
               "additionalProperties": false
             }
           },
