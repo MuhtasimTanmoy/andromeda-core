@@ -35,14 +35,6 @@ fn mock_app() -> App {
             .bank
             .init_balance(
                 storage,
-                &Addr::unchecked("buyer_one"),
-                [coin(100, "uandr")].to_vec(),
-            )
-            .unwrap();
-        router
-            .bank
-            .init_balance(
-                storage,
                 &Addr::unchecked("buyer_two"),
                 [coin(100, "uandr")].to_vec(),
             )
