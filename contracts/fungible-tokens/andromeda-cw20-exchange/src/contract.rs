@@ -1,13 +1,12 @@
 use ado_base::state::ADOContract;
 use andromeda_fungible_tokens::cw20_exchange::{
     Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, Sale, SaleResponse,
+    TokenAddressResponse,
 };
 use common::{
-    ado_base::{AndromedaQuery, InstantiateMsg as BaseInstantiateMsg},
-    // encode_binary,
+    ado_base::{AndromedaMsg, AndromedaQuery, InstantiateMsg as BaseInstantiateMsg},
     error::ContractError,
     parse_message_safe,
-    // parse_message,
 };
 use cosmwasm_std::{
     attr, coin, ensure, entry_point, from_binary, to_binary, wasm_execute, BankMsg, Binary,
@@ -31,7 +30,9 @@ pub struct ExecuteEnv<'a> {
 const CONTRACT_NAME: &str = "crates.io:andromeda-cw20-exchange";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// ID used for any refund sub messgaes
 const REFUND_REPLY_ID: u64 = 1;
+/// ID used for any purchased token transfer sub messages
 const PURCHASE_REPLY_ID: u64 = 2;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -78,6 +79,24 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     let execute_env = ExecuteEnv { deps, env, info };
+    let contract = ADOContract::default();
+
+    // Do this before the hooks get fired off to ensure that there are no errors from the app
+    // address not being fully setup yet.
+    if let ExecuteMsg::AndrReceive(andr_msg) = msg.clone() {
+        if let AndromedaMsg::UpdateAppContract { address } = andr_msg {
+            let token_address = TOKEN_ADDRESS.load(execute_env.deps.storage)?;
+            return contract.execute_update_app_contract(
+                execute_env.deps,
+                execute_env.info,
+                address,
+                Some(vec![token_address]),
+            );
+        } else if let AndromedaMsg::UpdateOwner { address } = andr_msg {
+            return contract.execute_update_owner(execute_env.deps, execute_env.info, address);
+        }
+    }
+
     match msg {
         ExecuteMsg::CancelSale { asset } => execute_cancel_sale(execute_env, asset),
         ExecuteMsg::Purchase { recipient } => execute_purchase_native(execute_env, recipient),
@@ -129,6 +148,7 @@ pub fn execute_start_sale(
     amount: Uint128,
     asset: AssetInfo,
     exchange_rate: Uint128,
+    // The original sender of the CW20::Send message
     sender: String,
 ) -> Result<Response, ContractError> {
     let app_contract = ADOContract::default().get_app_contract(execute_env.deps.storage)?;
@@ -146,6 +166,7 @@ pub fn execute_start_sale(
         ADOContract::default().is_contract_owner(execute_env.deps.storage, &sender)?,
         ContractError::Unauthorized {}
     );
+    // Message sender in this case should be the token address
     ensure!(
         execute_env.info.sender == token_addr,
         ContractError::InvalidFunds {
@@ -171,6 +192,7 @@ pub fn execute_start_sale(
     ]))
 }
 
+/// Generates a refund message given an asset and an amount
 fn generate_refund_message(
     asset: AssetInfo,
     amount: Uint128,
@@ -183,7 +205,10 @@ fn generate_refund_message(
                 amount: vec![coin(amount.u128(), denom)],
             };
 
-            Ok(SubMsg::new(CosmosMsg::Bank(bank_msg)))
+            Ok(SubMsg::reply_on_error(
+                CosmosMsg::Bank(bank_msg),
+                REFUND_REPLY_ID,
+            ))
         }
         AssetInfo::Cw20(addr) => {
             let transfer_msg = Cw20ExecuteMsg::Transfer { recipient, amount };
@@ -193,6 +218,7 @@ fn generate_refund_message(
                 REFUND_REPLY_ID,
             ))
         }
+        // Does not support 1155 currently
         _ => Err(ContractError::InvalidAsset {
             asset: asset.to_string(),
         }),
@@ -363,6 +389,7 @@ fn from_semver(err: semver::Error) -> StdError {
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::Sale { asset } => query_sale(deps, asset),
+        QueryMsg::TokenAddress {} => query_token_address(deps),
         QueryMsg::AndrQuery(andr_msg) => handle_andromeda_query(deps, env, andr_msg),
     }
 }
@@ -371,6 +398,16 @@ fn query_sale(deps: Deps, asset: impl ToString) -> Result<Binary, ContractError>
     let sale = SALE.may_load(deps.storage, &asset.to_string())?;
 
     Ok(to_binary(&SaleResponse { sale })?)
+}
+
+fn query_token_address(deps: Deps) -> Result<Binary, ContractError> {
+    let address = TOKEN_ADDRESS.load(deps.storage)?.get_address(
+        deps.api,
+        &deps.querier,
+        ADOContract::default().get_app_contract(deps.storage)?,
+    )?;
+
+    Ok(to_binary(&TokenAddressResponse { address })?)
 }
 
 fn handle_andromeda_query(

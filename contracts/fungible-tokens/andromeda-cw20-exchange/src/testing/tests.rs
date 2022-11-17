@@ -1,5 +1,5 @@
 use andromeda_fungible_tokens::cw20_exchange::{
-    Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, Sale, SaleResponse,
+    Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, Sale, SaleResponse, TokenAddressResponse,
 };
 use common::{ado_base::AndromedaQuery, app::AndrAddress, error::ContractError};
 use cosmwasm_std::{
@@ -950,6 +950,30 @@ fn test_query_sale() {
         from_binary(&query(deps.as_ref(), env, msg).unwrap()).unwrap();
 
     assert_eq!(found_response.sale, Some(sale));
+}
+
+#[test]
+fn test_query_token_address() {
+    let env = mock_env();
+    let mut deps = mock_dependencies();
+    let owner = Addr::unchecked("owner");
+    let token_address = Addr::unchecked("cw20");
+    let info = mock_info(owner.as_str(), &[]);
+
+    instantiate(
+        deps.as_mut(),
+        env.clone(),
+        info.clone(),
+        InstantiateMsg {
+            token_address: AndrAddress::from_string(token_address.to_string()),
+        },
+    )
+    .unwrap();
+
+    let msg = QueryMsg::TokenAddress {};
+    let resp: TokenAddressResponse = from_binary(&query(deps.as_ref(), env, msg).unwrap()).unwrap();
+
+    assert_eq!(resp.address, token_address.to_string())
 }
 
 #[test]
