@@ -3,7 +3,7 @@ use andromeda_fungible_tokens::cw20_exchange::{
 };
 use common::{ado_base::AndromedaQuery, app::AndrAddress, error::ContractError};
 use cosmwasm_std::{
-    attr, coins, from_binary,
+    attr, coin, coins, from_binary,
     testing::{mock_dependencies, mock_env, mock_info},
     to_binary, wasm_execute, Addr, BankMsg, CosmosMsg, Empty, SubMsg, Uint128,
 };
@@ -60,6 +60,7 @@ pub fn test_start_sale_invalid_token() {
     let hook = Cw20HookMsg::StartSale {
         asset: exchange_asset,
         exchange_rate: Uint128::from(10u128),
+        recipient: None,
     };
     // Owner set as Cw20ReceiveMsg sender to ensure that this message will error even if a malicious user
     // sends the message directly with the owner address provided
@@ -102,6 +103,7 @@ pub fn test_start_sale_unauthorised() {
     let hook = Cw20HookMsg::StartSale {
         asset: exchange_asset,
         exchange_rate: Uint128::from(10u128),
+        recipient: None,
     };
     let receive_msg = Cw20ReceiveMsg {
         sender: "not_owner".to_string(),
@@ -136,6 +138,7 @@ pub fn test_start_sale_zero_amount() {
     let hook = Cw20HookMsg::StartSale {
         asset: exchange_asset,
         exchange_rate: Uint128::from(10u128),
+        recipient: None,
     };
     let receive_msg = Cw20ReceiveMsg {
         sender: "not_owner".to_string(),
@@ -178,6 +181,7 @@ pub fn test_start_sale() {
     let hook = Cw20HookMsg::StartSale {
         asset: exchange_asset.clone(),
         exchange_rate,
+        recipient: None,
     };
     let receive_msg = Cw20ReceiveMsg {
         sender: owner.to_string(),
@@ -221,6 +225,7 @@ pub fn test_start_sale_ongoing() {
     let hook = Cw20HookMsg::StartSale {
         asset: exchange_asset,
         exchange_rate,
+        recipient: None,
     };
     let receive_msg = Cw20ReceiveMsg {
         sender: owner.to_string(),
@@ -261,6 +266,7 @@ pub fn test_start_sale_zero_exchange_rate() {
     let hook = Cw20HookMsg::StartSale {
         asset: exchange_asset,
         exchange_rate,
+        recipient: None,
     };
     let receive_msg = Cw20ReceiveMsg {
         sender: owner.to_string(),
@@ -336,6 +342,7 @@ pub fn test_purchase_not_enough_sent() {
         &Sale {
             amount: Uint128::from(100u128),
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -388,6 +395,7 @@ pub fn test_purchase_no_tokens_left() {
         &Sale {
             amount: Uint128::zero(),
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -435,6 +443,7 @@ pub fn test_purchase_not_enough_tokens() {
         &Sale {
             amount: Uint128::one(),
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -483,6 +492,7 @@ pub fn test_purchase() {
         &Sale {
             amount: sale_amount,
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -524,7 +534,24 @@ pub fn test_purchase() {
     assert_eq!(
         sale.amount,
         sale_amount.checked_sub(Uint128::from(10u128)).unwrap()
-    )
+    );
+
+    // Check recipient received funds
+    let msg = &res.messages[1];
+    let expected_wasm: CosmosMsg<Empty> = CosmosMsg::Wasm(
+        wasm_execute(
+            "exchanged_asset".to_string(),
+            &Cw20ExecuteMsg::Transfer {
+                recipient: owner.to_string(),
+                amount: purchase_amount,
+            },
+            vec![],
+        )
+        .unwrap(),
+    );
+    let expected = SubMsg::reply_on_error(expected_wasm, 3);
+
+    assert_eq!(msg, &expected);
 }
 
 #[test]
@@ -580,6 +607,7 @@ pub fn test_purchase_not_enough_sent_native() {
         &Sale {
             amount: Uint128::from(100u128),
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -624,6 +652,7 @@ pub fn test_purchase_no_tokens_left_native() {
         &Sale {
             amount: Uint128::zero(),
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -663,6 +692,7 @@ pub fn test_purchase_not_enough_tokens_native() {
         &Sale {
             amount: Uint128::from(1u128),
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -705,6 +735,7 @@ pub fn test_purchase_native() {
         &Sale {
             amount: sale_amount,
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -741,7 +772,17 @@ pub fn test_purchase_native() {
     assert_eq!(
         sale.amount,
         sale_amount.checked_sub(Uint128::from(10u128)).unwrap()
-    )
+    );
+
+    // Check recipient received funds
+    let msg = &res.messages[1];
+    let expected_wasm: CosmosMsg<Empty> = CosmosMsg::Bank(BankMsg::Send {
+        to_address: owner.to_string(),
+        amount: purchase_amount.to_vec(),
+    });
+    let expected = SubMsg::reply_on_error(expected_wasm, 3);
+
+    assert_eq!(msg, &expected);
 }
 
 #[test]
@@ -769,6 +810,7 @@ pub fn test_purchase_refund() {
         &Sale {
             amount: Uint128::from(100u128),
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -819,6 +861,7 @@ pub fn test_cancel_sale_unauthorised() {
         &Sale {
             amount: sale_amount,
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -888,6 +931,7 @@ pub fn test_cancel_sale() {
         &Sale {
             amount: sale_amount,
             exchange_rate,
+            recipient: owner.to_string(),
         },
     )
     .unwrap();
@@ -942,6 +986,7 @@ fn test_query_sale() {
     let sale = Sale {
         amount: sale_amount,
         exchange_rate,
+        recipient: "owner".to_string(),
     };
     SALE.save(deps.as_mut().storage, &exchange_asset.to_string(), &sale)
         .unwrap();
@@ -987,6 +1032,7 @@ fn test_andr_query() {
     let sale = Sale {
         amount: sale_amount,
         exchange_rate,
+        recipient: "owner".to_string(),
     };
     SALE.save(deps.as_mut().storage, &exchange_asset.to_string(), &sale)
         .unwrap();
@@ -1009,4 +1055,65 @@ fn test_andr_query() {
         from_binary(&query(deps.as_ref(), env, key_msg).unwrap()).unwrap();
 
     assert_eq!(key_response.sale, Some(sale));
+}
+
+#[test]
+fn test_purchase_native_invalid_coins() {
+    let env = mock_env();
+    let mut deps = mock_dependencies();
+    let owner = Addr::unchecked("owner");
+    let token_address = Addr::unchecked("cw20");
+    let info = mock_info(owner.as_str(), &[]);
+
+    instantiate(
+        deps.as_mut(),
+        env.clone(),
+        info,
+        InstantiateMsg {
+            token_address: AndrAddress::from_string(token_address.to_string()),
+        },
+    )
+    .unwrap();
+
+    let exchange_rate = Uint128::from(10u128);
+    SALE.save(
+        deps.as_mut().storage,
+        "native:test",
+        &Sale {
+            amount: Uint128::from(100u128),
+            exchange_rate,
+            recipient: owner.to_string(),
+        },
+    )
+    .unwrap();
+
+    let purchaser = Addr::unchecked("purchaser");
+    let msg = ExecuteMsg::Purchase { recipient: None };
+
+    let empty_coin_info = mock_info(purchaser.as_str(), &coins(0u128, "test"));
+    let err = execute(deps.as_mut(), env.clone(), empty_coin_info, msg.clone()).unwrap_err();
+
+    assert_eq!(
+        err,
+        ContractError::Payment(cw_utils::PaymentError::NoFunds {})
+    );
+
+    let two_coin_info = mock_info(
+        purchaser.as_str(),
+        &vec![coin(100u128, "test"), coin(10u128, "testtwo")],
+    );
+    let err = execute(deps.as_mut(), env.clone(), two_coin_info, msg.clone()).unwrap_err();
+
+    assert_eq!(
+        err,
+        ContractError::Payment(cw_utils::PaymentError::MultipleDenoms {})
+    );
+
+    let no_coin_info = mock_info(purchaser.as_str(), &[]);
+    let err = execute(deps.as_mut(), env.clone(), no_coin_info, msg.clone()).unwrap_err();
+
+    assert_eq!(
+        err,
+        ContractError::Payment(cw_utils::PaymentError::NoFunds {})
+    )
 }

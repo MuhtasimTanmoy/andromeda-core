@@ -46,9 +46,9 @@ pub fn parse_message<T: DeserializeOwned>(data: &Option<Binary>) -> Result<T, Co
     parse_struct::<T>(data)
 }
 
-/// Parses Binary in to a given type
-/// Returns None if the Binary can not be decoded to the given type
-/// Returns Some(data) if the decoding was successful
+/// Parses Binary in to a given type returning a safe Option response.
+/// Returns `None` if the Binary can not be decoded to the given type.
+/// Returns `Some(data)` if the decoding was successful.
 pub fn parse_message_safe<T>(data: &Binary) -> StdResult<Option<T>>
 where
     T: DeserializeOwned,

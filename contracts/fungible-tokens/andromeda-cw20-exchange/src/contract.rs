@@ -34,6 +34,8 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const REFUND_REPLY_ID: u64 = 1;
 /// ID used for any purchased token transfer sub messages
 const PURCHASE_REPLY_ID: u64 = 2;
+/// ID used for transfer to sale recipient
+const RECIPIENT_REPLY_ID: u64 = 3;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -132,7 +134,15 @@ pub fn execute_receive(
         Cw20HookMsg::StartSale {
             asset,
             exchange_rate,
-        } => execute_start_sale(execute_env, amount_sent, asset, exchange_rate, sender),
+            recipient,
+        } => execute_start_sale(
+            execute_env,
+            amount_sent,
+            asset,
+            exchange_rate,
+            sender,
+            recipient,
+        ),
         Cw20HookMsg::Purchase { recipient } => execute_purchase(
             execute_env,
             amount_sent,
@@ -150,6 +160,8 @@ pub fn execute_start_sale(
     exchange_rate: Uint128,
     // The original sender of the CW20::Send message
     sender: String,
+    // The recipient of the sale proceeds
+    recipient: Option<String>,
 ) -> Result<Response, ContractError> {
     let app_contract = ADOContract::default().get_app_contract(execute_env.deps.storage)?;
     let token_addr = TOKEN_ADDRESS.load(execute_env.deps.storage)?.get_address(
@@ -181,6 +193,7 @@ pub fn execute_start_sale(
     let sale = Sale {
         amount,
         exchange_rate,
+        recipient: recipient.unwrap_or(sender),
     };
     SALE.save(execute_env.deps.storage, &asset.to_string(), &sale)?;
 
@@ -192,11 +205,12 @@ pub fn execute_start_sale(
     ]))
 }
 
-/// Generates a refund message given an asset and an amount
-fn generate_refund_message(
+/// Generates a transfer message given an asset and an amount
+fn generate_transfer_message(
     asset: AssetInfo,
     amount: Uint128,
     recipient: String,
+    id: u64,
 ) -> Result<SubMsg, ContractError> {
     match asset.clone() {
         AssetInfo::Native(denom) => {
@@ -205,18 +219,12 @@ fn generate_refund_message(
                 amount: vec![coin(amount.u128(), denom)],
             };
 
-            Ok(SubMsg::reply_on_error(
-                CosmosMsg::Bank(bank_msg),
-                REFUND_REPLY_ID,
-            ))
+            Ok(SubMsg::reply_on_error(CosmosMsg::Bank(bank_msg), id))
         }
         AssetInfo::Cw20(addr) => {
             let transfer_msg = Cw20ExecuteMsg::Transfer { recipient, amount };
             let wasm_msg = wasm_execute(addr, &transfer_msg, vec![])?;
-            Ok(SubMsg::reply_on_error(
-                CosmosMsg::Wasm(wasm_msg),
-                REFUND_REPLY_ID,
-            ))
+            Ok(SubMsg::reply_on_error(CosmosMsg::Wasm(wasm_msg), id))
         }
         // Does not support 1155 currently
         _ => Err(ContractError::InvalidAsset {
@@ -254,10 +262,11 @@ pub fn execute_purchase(
     // If purchase was rounded down return funds to purchaser
     if !remainder.is_zero() {
         resp = resp
-            .add_submessage(generate_refund_message(
+            .add_submessage(generate_transfer_message(
                 asset_sent.clone(),
                 remainder,
                 sender.to_string(),
+                REFUND_REPLY_ID,
             )?)
             .add_attribute("refunded_amount", remainder);
     }
@@ -282,6 +291,14 @@ pub fn execute_purchase(
     sale.amount = sale.amount.checked_sub(purchased)?;
     SALE.save(execute_env.deps.storage, &asset_sent.to_string(), &sale)?;
 
+    // Transfer exchanged asset to recipient
+    resp = resp.add_submessage(generate_transfer_message(
+        asset_sent.clone(),
+        amount_sent,
+        sale.recipient.clone(),
+        RECIPIENT_REPLY_ID,
+    )?);
+
     Ok(resp.add_attributes(vec![
         attr("action", "purchase"),
         attr("purchaser", sender),
@@ -289,6 +306,7 @@ pub fn execute_purchase(
         attr("amount", purchased),
         attr("purchase_asset", asset_sent.to_string()),
         attr("purchase_asset_amount_send", amount_sent),
+        attr("recipient", sale.recipient),
     ]))
 }
 
@@ -330,10 +348,11 @@ pub fn execute_cancel_sale(
     // Refund any remaining amount
     if !sale.amount.is_zero() {
         resp = resp
-            .add_submessage(generate_refund_message(
+            .add_submessage(generate_transfer_message(
                 asset.clone(),
                 sale.amount,
                 execute_env.info.sender.to_string(),
+                REFUND_REPLY_ID,
             )?)
             .add_attribute("refunded_amount", sale.amount);
     }
@@ -417,11 +436,15 @@ fn handle_andromeda_query(
 ) -> Result<Binary, ContractError> {
     match msg {
         AndromedaQuery::Get(data_opt) => {
+            // Message must contain data
             let Some(data) = data_opt else {
                 return Err(ContractError::MissingRequiredMessageData {  });
             };
 
+            // Try to determine if data is an asset or a message
+            // If message decodes to string assume it is a key and query sale for given key
             let Some(key) = parse_message_safe::<String>(&data)? else {
+                // If the data is not a string then try to decode to a query message
                 let Some(message) = parse_message_safe::<QueryMsg>(&data)? else {
                     return Err(ContractError::MissingRequiredMessageData {  });
                 };

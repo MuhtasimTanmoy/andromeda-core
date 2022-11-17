@@ -17,16 +17,16 @@ pub fn mock_minter(minter: String, cap: Option<Uint128>) -> MinterResponse {
 }
 
 pub fn mock_cw20_instantiate_msg(
-    name: String,
-    symbol: String,
+    name: impl Into<String>,
+    symbol: impl Into<String>,
     decimals: u8,
     initial_balances: Vec<cw20::Cw20Coin>,
     mint: Option<MinterResponse>,
     modules: Option<Vec<Module>>,
 ) -> InstantiateMsg {
     InstantiateMsg {
-        name,
-        symbol,
+        name: name.into(),
+        symbol: symbol.into(),
         decimals,
         initial_balances,
         mint,
@@ -35,13 +35,15 @@ pub fn mock_cw20_instantiate_msg(
     }
 }
 
-pub fn mock_get_cw20_balance(address: String) -> QueryMsg {
-    QueryMsg::Balance { address }
+pub fn mock_get_cw20_balance(address: impl Into<String>) -> QueryMsg {
+    QueryMsg::Balance {
+        address: address.into(),
+    }
 }
 
-pub fn mock_cw20_send(contract: String, amount: Uint128, msg: Binary) -> ExecuteMsg {
+pub fn mock_cw20_send(contract: impl Into<String>, amount: Uint128, msg: Binary) -> ExecuteMsg {
     ExecuteMsg::Send {
-        contract,
+        contract: contract.into(),
         amount,
         msg,
     }

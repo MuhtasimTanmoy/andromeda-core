@@ -33,6 +33,8 @@ pub struct Sale {
     pub exchange_rate: Uint128,
     /// The amount for sale at the given rate
     pub amount: Uint128,
+    /// The recipient of the sale proceeds
+    pub recipient: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -43,6 +45,9 @@ pub enum Cw20HookMsg {
         asset: AssetInfo,
         /// The amount of the above asset required to purchase a single token
         exchange_rate: Uint128,
+        /// The recipient of the sale proceeds
+        /// Sender is used if `None` provided
+        recipient: Option<String>,
     },
     /// Purchases tokens
     Purchase {

@@ -10,14 +10,14 @@ pub fn mock_andromeda_app() -> Box<dyn Contract<Empty>> {
 }
 
 pub fn mock_app_instantiate_msg(
-    name: String,
+    name: impl Into<String>,
     app_components: Vec<AppComponent>,
-    primitive_contract: String,
+    primitive_contract: impl Into<String>,
 ) -> InstantiateMsg {
     InstantiateMsg {
         app_components,
-        name,
-        primitive_contract,
+        name: name.into(),
+        primitive_contract: primitive_contract.into(),
     }
 }
 
