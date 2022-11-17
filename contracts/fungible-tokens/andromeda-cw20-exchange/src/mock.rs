@@ -1,7 +1,7 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "testing"))]
 
 use crate::contract::{execute, instantiate, query};
-use andromeda_fungible_tokens::cw20_exchange::{Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg};
+use andromeda_fungible_tokens::cw20_exchange::{Cw20HookMsg, ExecuteMsg, InstantiateMsg};
 use common::app::AndrAddress;
 use cosmwasm_std::{Empty, Uint128};
 use cw_asset::AssetInfo;

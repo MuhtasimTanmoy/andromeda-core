@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use andromeda_app::app::AppComponent;
 use andromeda_app_contract::mock::{
     mock_andromeda_app, mock_app_instantiate_msg, mock_claim_ownership_msg, mock_get_address_msg,
@@ -14,15 +12,12 @@ use andromeda_cw20_exchange::mock::{
     mock_cw20_exchange_instantiate_msg, mock_cw20_exchange_purchase_msg,
     mock_cw20_exchange_start_sale_msg,
 };
-use andromeda_fungible_tokens::cw20_exchange;
+
 use andromeda_testing::mock::MockAndromeda;
-use common::app::AndrAddress;
-use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BalanceResponse as NativeBalanceResponse, BlockInfo, Coin,
-    Decimal, Uint128,
-};
+
+use cosmwasm_std::{coin, coins, to_binary, Addr, Uint128};
 use cw20::{BalanceResponse, Cw20Coin};
-use cw721::{Expiration, OwnerOfResponse};
+
 use cw_asset::AssetInfo;
 use cw_multi_test::{App, Executor};
 
@@ -146,7 +141,7 @@ fn test_cw20_exchange_app() {
     let cw20_exchange_addr: String = router
         .wrap()
         .query_wasm_smart(
-            app_addr.clone(),
+            app_addr,
             &mock_get_address_msg(cw20_exchange_app_component.name),
         )
         .unwrap();
@@ -214,7 +209,7 @@ fn test_cw20_exchange_app() {
         .unwrap();
 
     // Validate balances post transaction
-    let buyer_one_token_balance_query = mock_get_cw20_balance(buyer_one.clone());
+    let buyer_one_token_balance_query = mock_get_cw20_balance(buyer_one);
     let buyer_one_token_balance: BalanceResponse = router
         .wrap()
         .query_wasm_smart(cw20_addr.clone(), &buyer_one_token_balance_query)
@@ -237,7 +232,7 @@ fn test_cw20_exchange_app() {
         .unwrap();
     let owner_exchange_balance: BalanceResponse = router
         .wrap()
-        .query_wasm_smart(cw20_exchange_asset_addr.clone(), &owner_token_balance_query)
+        .query_wasm_smart(cw20_exchange_asset_addr, &owner_token_balance_query)
         .unwrap();
 
     assert_eq!(owner_token_balance.balance, Uint128::from(999980u128));
@@ -269,7 +264,7 @@ fn test_cw20_exchange_app() {
     router
         .execute_contract(
             buyer_two.clone(),
-            Addr::unchecked(cw20_exchange_addr.clone()),
+            Addr::unchecked(cw20_exchange_addr),
             &purchase_native_msg,
             &coins(100u128, "uandr"),
         )
@@ -281,10 +276,7 @@ fn test_cw20_exchange_app() {
         .wrap()
         .query_wasm_smart(cw20_addr.clone(), &buyer_two_token_balance_query)
         .unwrap();
-    let buyer_two_native_balance = router
-        .wrap()
-        .query_balance(buyer_two.clone(), "uandr")
-        .unwrap();
+    let buyer_two_native_balance = router.wrap().query_balance(buyer_two, "uandr").unwrap();
 
     assert_eq!(buyer_two_token_balance.balance, Uint128::from(10u128));
     assert_eq!(buyer_two_native_balance.amount, Uint128::zero());
@@ -292,9 +284,9 @@ fn test_cw20_exchange_app() {
     let owner_token_balance_query = mock_get_cw20_balance(owner.clone());
     let owner_token_balance: BalanceResponse = router
         .wrap()
-        .query_wasm_smart(cw20_addr.clone(), &owner_token_balance_query)
+        .query_wasm_smart(cw20_addr, &owner_token_balance_query)
         .unwrap();
-    let owner_native_balance_post = router.wrap().query_balance(owner.clone(), "uandr").unwrap();
+    let owner_native_balance_post = router.wrap().query_balance(owner, "uandr").unwrap();
 
     assert_eq!(owner_token_balance.balance, Uint128::from(999960u128));
     assert_eq!(

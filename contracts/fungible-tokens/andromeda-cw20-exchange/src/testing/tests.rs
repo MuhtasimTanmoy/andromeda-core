@@ -1100,7 +1100,7 @@ fn test_purchase_native_invalid_coins() {
 
     let two_coin_info = mock_info(
         purchaser.as_str(),
-        &vec![coin(100u128, "test"), coin(10u128, "testtwo")],
+        &[coin(100u128, "test"), coin(10u128, "testtwo")],
     );
     let err = execute(deps.as_mut(), env.clone(), two_coin_info, msg.clone()).unwrap_err();
 
@@ -1110,7 +1110,7 @@ fn test_purchase_native_invalid_coins() {
     );
 
     let no_coin_info = mock_info(purchaser.as_str(), &[]);
-    let err = execute(deps.as_mut(), env.clone(), no_coin_info, msg.clone()).unwrap_err();
+    let err = execute(deps.as_mut(), env, no_coin_info, msg).unwrap_err();
 
     assert_eq!(
         err,
