@@ -963,7 +963,7 @@ fn test_query_token_address() {
     instantiate(
         deps.as_mut(),
         env.clone(),
-        info.clone(),
+        info,
         InstantiateMsg {
             token_address: AndrAddress::from_string(token_address.to_string()),
         },
