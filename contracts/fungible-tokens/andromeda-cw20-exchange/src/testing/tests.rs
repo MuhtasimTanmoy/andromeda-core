@@ -827,10 +827,13 @@ pub fn test_purchase_refund() {
     assert_eq!(refund_attribute, attr("refunded_amount", "5"));
     assert_eq!(
         refund_message,
-        &SubMsg::new(CosmosMsg::Bank(BankMsg::Send {
-            to_address: info.sender.to_string(),
-            amount: coins(5u128, "test")
-        }))
+        &SubMsg::reply_on_error(
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: info.sender.to_string(),
+                amount: coins(5u128, "test")
+            }),
+            1
+        )
     )
 }
 
