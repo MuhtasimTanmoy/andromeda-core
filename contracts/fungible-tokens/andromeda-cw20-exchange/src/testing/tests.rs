@@ -1,5 +1,6 @@
 use andromeda_fungible_tokens::cw20_exchange::{
-    Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, Sale, SaleResponse, TokenAddressResponse,
+    Cw20HookMsg, ExecuteMsg, InstantiateMsg, QueryMsg, Sale, SaleAssetsResponse, SaleResponse,
+    TokenAddressResponse,
 };
 use common::{ado_base::AndromedaQuery, app::AndrAddress, error::ContractError};
 use cosmwasm_std::{
@@ -1119,4 +1120,56 @@ fn test_purchase_native_invalid_coins() {
         err,
         ContractError::Payment(cw_utils::PaymentError::NoFunds {})
     )
+}
+
+#[test]
+fn test_query_sale_assets() {
+    let env = mock_env();
+    let mut deps = mock_dependencies();
+    let owner = Addr::unchecked("owner");
+    let token_address = Addr::unchecked("cw20");
+    let info = mock_info(owner.as_str(), &[]);
+
+    instantiate(
+        deps.as_mut(),
+        env.clone(),
+        info,
+        InstantiateMsg {
+            token_address: AndrAddress::from_string(token_address.to_string()),
+        },
+    )
+    .unwrap();
+
+    let exchange_rate = Uint128::from(10u128);
+    SALE.save(
+        deps.as_mut().storage,
+        "native:test",
+        &Sale {
+            amount: Uint128::from(100u128),
+            exchange_rate,
+            recipient: owner.to_string(),
+        },
+    )
+    .unwrap();
+    SALE.save(
+        deps.as_mut().storage,
+        "cw20:testaddress",
+        &Sale {
+            amount: Uint128::from(100u128),
+            exchange_rate,
+            recipient: owner.to_string(),
+        },
+    )
+    .unwrap();
+
+    let query_msg = QueryMsg::SaleAssets {
+        limit: None,
+        start_after: None,
+    };
+    let resp: SaleAssetsResponse =
+        from_binary(&query(deps.as_ref(), env, query_msg).unwrap()).unwrap();
+
+    assert_eq!(resp.assets.len(), 2);
+    assert_eq!(resp.assets[0], "cw20:testaddress");
+    assert_eq!(resp.assets[1], "native:test");
 }

@@ -65,9 +65,19 @@ pub enum QueryMsg {
     /// The address of the token being purchased
     #[returns(TokenAddressResponse)]
     TokenAddress {},
+    #[returns(SaleAssetsResponse)]
+    SaleAssets {
+        start_after: Option<String>,
+        limit: Option<u32>,
+    },
     /// Andromeda Query Messages
     #[returns(AndromedaQuery)]
     AndrQuery(AndromedaQuery),
+}
+
+#[cw_serde]
+pub struct SaleAssetsResponse {
+    pub assets: Vec<String>,
 }
 
 #[cw_serde]

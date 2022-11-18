@@ -1,7 +1,7 @@
 use ado_base::state::ADOContract;
 use andromeda_fungible_tokens::cw20_exchange::{
-    Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, Sale, SaleResponse,
-    TokenAddressResponse,
+    Cw20HookMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, Sale, SaleAssetsResponse,
+    SaleResponse, TokenAddressResponse,
 };
 use common::{
     ado_base::{AndromedaMsg, AndromedaQuery, InstantiateMsg as BaseInstantiateMsg},
@@ -15,6 +15,7 @@ use cosmwasm_std::{
 use cw2::{get_contract_version, set_contract_version};
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 use cw_asset::AssetInfo;
+use cw_storage_plus::Bound;
 use cw_utils::{nonpayable, one_coin};
 use semver::Version;
 
@@ -409,6 +410,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractErro
     match msg {
         QueryMsg::Sale { asset } => query_sale(deps, asset),
         QueryMsg::TokenAddress {} => query_token_address(deps),
+        QueryMsg::SaleAssets { start_after, limit } => {
+            query_sale_assets(deps, start_after.as_ref().map(|x| &**x), limit)
+        }
         QueryMsg::AndrQuery(andr_msg) => handle_andromeda_query(deps, env, andr_msg),
     }
 }
@@ -427,6 +431,25 @@ fn query_token_address(deps: Deps) -> Result<Binary, ContractError> {
     )?;
 
     Ok(to_binary(&TokenAddressResponse { address })?)
+}
+
+const DEFAULT_LIMIT: u32 = 50;
+const MAX_LIMIT: u32 = 100;
+
+fn query_sale_assets(
+    deps: Deps,
+    start_after: Option<&str>,
+    limit: Option<u32>,
+) -> Result<Binary, ContractError> {
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let start = start_after.map(Bound::exclusive);
+
+    let assets: Vec<String> = SALE
+        .keys(deps.storage, start, None, cosmwasm_std::Order::Ascending)
+        .take(limit)
+        .collect::<Result<Vec<String>, StdError>>()?;
+
+    Ok(to_binary(&SaleAssetsResponse { assets })?)
 }
 
 fn handle_andromeda_query(
