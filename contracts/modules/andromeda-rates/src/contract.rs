@@ -250,7 +250,6 @@ fn query_exemptions(
     let exemptions: Vec<String> = EXEMPT_ADDRESSES
         .keys(deps.storage, start, None, Order::Ascending)
         .take(limit)
-        .map(|k| Ok(k?))
         .collect::<Result<Vec<String>, StdError>>()?;
 
     Ok(ExemptionsResponse { exemptions })
