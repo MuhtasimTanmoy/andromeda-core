@@ -488,6 +488,9 @@ pub enum ContractError {
 
     #[error("Not enough tokens left on sale")]
     NotEnoughTokens {},
+
+    #[error("Address is Exempt")]
+    AddressExempt {},
 }
 
 impl From<Cw20ContractError> for ContractError {

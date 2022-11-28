@@ -239,6 +239,8 @@ fn execute_mint(
     )?)
 }
 
+/// Removes transfer messages for any CW20 tokens and calls transfer for the rates amount
+/// CW20 rates are assumed to be for the current CW20 contract
 fn filter_out_cw20_messages(
     msgs: Vec<SubMsg>,
     storage: &mut dyn Storage,
@@ -254,7 +256,9 @@ fn filter_out_cw20_messages(
             if let Ok(Cw20ExecuteMsg::Transfer { recipient, amount }) =
                 from_binary::<Cw20ExecuteMsg>(&exec_msg)
             {
-                transfer_tokens(storage, sender, &api.addr_validate(&recipient)?, amount)?;
+                if !amount.is_zero() {
+                    transfer_tokens(storage, sender, &api.addr_validate(&recipient)?, amount)?;
+                }
             } else {
                 resp = resp.add_submessage(sub_msg);
             }

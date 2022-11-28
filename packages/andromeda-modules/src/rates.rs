@@ -15,6 +15,8 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     AndrReceive(AndromedaMsg),
     UpdateRates { rates: Vec<RateInfo> },
+    AddExemption { address: String },
+    RemoveExemption { address: String },
 }
 
 #[cw_serde]

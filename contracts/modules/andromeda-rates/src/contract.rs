@@ -1,4 +1,4 @@
-use crate::state::{Config, CONFIG};
+use crate::state::{Config, CONFIG, EXEMPT_ADDRESSES};
 use ado_base::ADOContract;
 use andromeda_modules::rates::{
     calculate_fee, ExecuteMsg, InstantiateMsg, MigrateMsg, PaymentAttribute, PaymentsResponse,
@@ -61,6 +61,8 @@ pub fn execute(
     match msg {
         ExecuteMsg::AndrReceive(msg) => execute_andr_receive(deps, env, info, msg),
         ExecuteMsg::UpdateRates { rates } => execute_update_rates(deps, info, rates),
+        ExecuteMsg::AddExemption { address } => execute_add_exemption(deps, info, address),
+        ExecuteMsg::RemoveExemption { address } => execute_remove_exemption(deps, info, address),
     }
 }
 
@@ -95,6 +97,56 @@ fn execute_update_rates(
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new().add_attributes(vec![attr("action", "update_rates")]))
+}
+
+fn execute_add_exemption(
+    deps: DepsMut,
+    info: MessageInfo,
+    address: String,
+) -> Result<Response, ContractError> {
+    nonpayable(&info)?;
+    ensure!(
+        ADOContract::default().is_contract_owner(deps.storage, info.sender.as_str())?,
+        ContractError::Unauthorized {}
+    );
+
+    let is_exempt = EXEMPT_ADDRESSES
+        .load(deps.storage, &address)
+        .unwrap_or(false);
+
+    if is_exempt {
+        return Err(ContractError::AddressExempt {});
+    }
+
+    EXEMPT_ADDRESSES.save(deps.storage, &address, &true)?;
+
+    Ok(Response::default()
+        .add_attributes([attr("action", "add_exemption"), attr("address", address)]))
+}
+
+fn execute_remove_exemption(
+    deps: DepsMut,
+    info: MessageInfo,
+    address: String,
+) -> Result<Response, ContractError> {
+    nonpayable(&info)?;
+    ensure!(
+        ADOContract::default().is_contract_owner(deps.storage, info.sender.as_str())?,
+        ContractError::Unauthorized {}
+    );
+
+    let is_exempt = EXEMPT_ADDRESSES
+        .load(deps.storage, &address)
+        .unwrap_or(false);
+
+    if !is_exempt {
+        return Err(ContractError::InvalidAddress {});
+    }
+
+    EXEMPT_ADDRESSES.remove(deps.storage, &address);
+
+    Ok(Response::default()
+        .add_attributes([attr("action", "remove_exemption"), attr("address", address)]))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -152,7 +204,7 @@ fn handle_andromeda_query(
     match msg {
         AndromedaQuery::Get(data) => {
             let funds: Funds = parse_message(&data)?;
-            encode_binary(&Some(query_deducted_funds(deps, funds)?))
+            encode_binary(&Some(query_deducted_funds(deps, funds, None)?))
         }
         _ => ADOContract::default().query(deps, env, msg, query),
     }
@@ -160,8 +212,8 @@ fn handle_andromeda_query(
 
 fn handle_andromeda_hook(deps: Deps, msg: AndromedaHook) -> Result<Binary, ContractError> {
     match msg {
-        AndromedaHook::OnFundsTransfer { amount, .. } => {
-            encode_binary(&query_deducted_funds(deps, amount)?)
+        AndromedaHook::OnFundsTransfer { amount, sender, .. } => {
+            encode_binary(&query_deducted_funds(deps, amount, Some(sender))?)
         }
         _ => Ok(encode_binary(&None::<Response>)?),
     }
@@ -177,8 +229,25 @@ fn query_payments(deps: Deps) -> Result<PaymentsResponse, ContractError> {
 fn query_deducted_funds(
     deps: Deps,
     funds: Funds,
+    sender: Option<String>,
 ) -> Result<OnFundsTransferResponse, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+    // Check sender for exemption
+    if let Some(sender_addr) = sender {
+        let is_exempt = EXEMPT_ADDRESSES
+            .load(deps.storage, &sender_addr)
+            .unwrap_or(false);
+
+        // If sender is exempt then do not deduct any funds
+        if is_exempt {
+            return Ok(OnFundsTransferResponse {
+                msgs: vec![],
+                events: vec![],
+                leftover_funds: funds,
+            });
+        }
+    }
+
     let mut msgs: Vec<SubMsg> = vec![];
     let mut events: Vec<Event> = vec![];
     let (coin, is_native): (Coin, bool) = match funds {
@@ -266,7 +335,7 @@ mod tests {
     use common::{app::AndrAddress, primitive::PrimitivePointer};
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{
-        coin, coins, from_binary, BankMsg, Coin, CosmosMsg, Decimal, Uint128, WasmMsg,
+        coin, coins, from_binary, to_binary, BankMsg, Coin, CosmosMsg, Decimal, Uint128, WasmMsg,
     };
     use cw20::Cw20ExecuteMsg;
 
@@ -542,5 +611,77 @@ mod tests {
             },
             res
         );
+    }
+
+    #[test]
+    pub fn test_exemption() {
+        let mut deps = mock_dependencies_custom(&[]);
+        let env = mock_env();
+        let owner = "owner";
+        let info = mock_info(owner, &[]);
+        let cw20_address = "address";
+        let payee = "payee";
+        let rates = vec![
+            RateInfo {
+                rate: Rate::Flat(Coin {
+                    amount: Uint128::from(20u128),
+                    denom: cw20_address.to_string(),
+                }),
+                is_additive: true,
+                description: Some("desc2".to_string()),
+                recipients: vec![Recipient::Addr("1".into())],
+            },
+            RateInfo {
+                rate: Rate::from(Decimal::percent(10)),
+                is_additive: false,
+                description: Some("desc1".to_string()),
+                recipients: vec![Recipient::Addr("2".into())],
+            },
+            RateInfo {
+                rate: Rate::External(PrimitivePointer {
+                    address: AndrAddress {
+                        identifier: MOCK_PRIMITIVE_CONTRACT.to_owned(),
+                    },
+                    key: Some("flat_cw20".to_string()),
+                }),
+                is_additive: false,
+                description: Some("desc3".to_string()),
+                recipients: vec![Recipient::Addr("3".into())],
+            },
+        ];
+        let msg = InstantiateMsg { rates };
+        let _res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
+
+        let exemption_msg = ExecuteMsg::AddExemption {
+            address: payee.to_string(),
+        };
+        execute(deps.as_mut(), env.clone(), info.clone(), exemption_msg).unwrap();
+
+        let sent_amount = Funds::Cw20(Cw20Coin {
+            address: cw20_address.to_string(),
+            amount: Uint128::from(100u128),
+        });
+        let res: OnFundsTransferResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                env.clone(),
+                QueryMsg::AndrHook(AndromedaHook::OnFundsTransfer {
+                    sender: payee.to_string(),
+                    payload: to_binary(&true).unwrap(),
+                    amount: sent_amount.clone(),
+                }),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(res.events.len(), 0);
+        assert_eq!(res.msgs.len(), 0);
+        assert_eq!(res.leftover_funds, sent_amount);
+
+        let exemption_msg = ExecuteMsg::RemoveExemption {
+            address: payee.to_string(),
+        };
+        execute(deps.as_mut(), env.clone(), info, exemption_msg).unwrap();
     }
 }
