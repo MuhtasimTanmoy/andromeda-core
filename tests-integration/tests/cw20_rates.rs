@@ -167,10 +167,7 @@ fn test_cw20_rates() {
         .unwrap();
     let rates_addr: String = router
         .wrap()
-        .query_wasm_smart(
-            app_addr.clone(),
-            &mock_get_address_msg(rates_app_component.name),
-        )
+        .query_wasm_smart(app_addr, &mock_get_address_msg(rates_app_component.name))
         .unwrap();
 
     // Add Exemptions
@@ -202,7 +199,7 @@ fn test_cw20_rates() {
         .execute_contract(owner.clone(), Addr::unchecked(cw20_addr.clone()), &msg, &[])
         .unwrap();
 
-    let receiver_balance_query = mock_get_cw20_balance(exchange_addr.clone());
+    let receiver_balance_query = mock_get_cw20_balance(exchange_addr);
     let receiver_balance: BalanceResponse = router
         .wrap()
         .query_wasm_smart(cw20_addr.clone(), &receiver_balance_query)
@@ -231,7 +228,7 @@ fn test_cw20_rates() {
         .execute_contract(owner.clone(), Addr::unchecked(cw20_addr.clone()), &msg, &[])
         .unwrap();
 
-    let receiver_balance_query = mock_get_cw20_balance(unexempt_exchange_addr.clone());
+    let receiver_balance_query = mock_get_cw20_balance(unexempt_exchange_addr);
     let receiver_balance: BalanceResponse = router
         .wrap()
         .query_wasm_smart(cw20_addr.clone(), &receiver_balance_query)
@@ -251,7 +248,7 @@ fn test_cw20_rates() {
         .execute_contract(buyer.clone(), Addr::unchecked(cw20_addr.clone()), &msg, &[])
         .unwrap();
 
-    let receiver_balance_query = mock_get_cw20_balance(buyer_two.clone());
+    let receiver_balance_query = mock_get_cw20_balance(buyer_two);
     let receiver_balance: BalanceResponse = router
         .wrap()
         .query_wasm_smart(cw20_addr.clone(), &receiver_balance_query)
@@ -268,20 +265,20 @@ fn test_cw20_rates() {
     // Transfer exempt address
     let msg = mock_cw20_transfer(exempt_buyer.to_string(), Uint128::from(100u128));
     router
-        .execute_contract(buyer.clone(), Addr::unchecked(cw20_addr.clone()), &msg, &[])
+        .execute_contract(buyer, Addr::unchecked(cw20_addr.clone()), &msg, &[])
         .unwrap();
 
-    let receiver_balance_query = mock_get_cw20_balance(exempt_buyer.clone());
+    let receiver_balance_query = mock_get_cw20_balance(exempt_buyer);
     let receiver_balance: BalanceResponse = router
         .wrap()
         .query_wasm_smart(cw20_addr.clone(), &receiver_balance_query)
         .unwrap();
     assert_eq!(receiver_balance.balance, Uint128::from(10100u128));
 
-    let owner_balance_query = mock_get_cw20_balance(owner.clone());
+    let owner_balance_query = mock_get_cw20_balance(owner);
     let owner_balance: BalanceResponse = router
         .wrap()
-        .query_wasm_smart(cw20_addr.clone(), &owner_balance_query)
+        .query_wasm_smart(cw20_addr, &owner_balance_query)
         .unwrap();
     assert_eq!(owner_balance.balance, Uint128::from(2u128));
 }
