@@ -1,7 +1,7 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "testing"))]
 
 use crate::contract::{execute, instantiate, query};
-use andromeda_modules::rates::{InstantiateMsg, RateInfo};
+use andromeda_modules::rates::{ExecuteMsg, InstantiateMsg, RateInfo};
 use cosmwasm_std::Empty;
 use cw_multi_test::{Contract, ContractWrapper};
 
@@ -12,4 +12,16 @@ pub fn mock_andromeda_rates() -> Box<dyn Contract<Empty>> {
 
 pub fn mock_rates_instantiate_msg(rates: Vec<RateInfo>) -> InstantiateMsg {
     InstantiateMsg { rates }
+}
+
+pub fn mock_add_exemption_msg(address: impl Into<String>) -> ExecuteMsg {
+    ExecuteMsg::AddExemption {
+        address: address.into(),
+    }
+}
+
+pub fn mock_remove_exemption_msg(address: impl Into<String>) -> ExecuteMsg {
+    ExecuteMsg::RemoveExemption {
+        address: address.into(),
+    }
 }
