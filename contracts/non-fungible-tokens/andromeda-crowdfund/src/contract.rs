@@ -446,6 +446,7 @@ fn purchase_tokens(
         api,
         querier,
         info.sender.to_string(),
+        state.recipient.clone().into(),
         Funds::Native(state.price.clone()),
         encode_binary(&"")?,
     )?;

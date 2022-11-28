@@ -238,6 +238,7 @@ fn execute_transfer(
             deps.api,
             &deps.querier,
             info.sender.to_string(),
+            token.owner.to_string(),
             Funds::Native(agreement_amount.clone()),
             encode_binary(&ExecuteMsg::TransferNft {
                 token_id: token_id.clone(),
@@ -450,12 +451,14 @@ fn handle_andr_hook(deps: Deps, msg: AndromedaHook) -> Result<Binary, ContractEr
             sender,
             payload: _,
             amount,
+            receiver,
         } => {
             let (msgs, events, remainder) = ADOContract::default().on_funds_transfer(
                 deps.storage,
                 deps.api,
                 &deps.querier,
                 sender,
+                receiver,
                 amount,
                 encode_binary(&String::default())?,
             )?;

@@ -69,3 +69,6 @@ name = "wrapped_cw721_app"
 
 [[test]]
 name = "cw20_exchange_app"
+
+[[test]]
+name = "cw20_rates"

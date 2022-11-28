@@ -209,7 +209,7 @@ fn handle_andromeda_query(
     match msg {
         AndromedaQuery::Get(data) => {
             let funds: Funds = parse_message(&data)?;
-            encode_binary(&Some(query_deducted_funds(deps, funds, None)?))
+            encode_binary(&Some(query_deducted_funds(deps, funds, None, None)?))
         }
         _ => ADOContract::default().query(deps, env, msg, query),
     }
@@ -217,9 +217,17 @@ fn handle_andromeda_query(
 
 fn handle_andromeda_hook(deps: Deps, msg: AndromedaHook) -> Result<Binary, ContractError> {
     match msg {
-        AndromedaHook::OnFundsTransfer { amount, sender, .. } => {
-            encode_binary(&query_deducted_funds(deps, amount, Some(sender))?)
-        }
+        AndromedaHook::OnFundsTransfer {
+            amount,
+            sender,
+            receiver,
+            ..
+        } => encode_binary(&query_deducted_funds(
+            deps,
+            amount,
+            Some(sender),
+            Some(receiver),
+        )?),
         _ => Ok(encode_binary(&None::<Response>)?),
     }
 }
@@ -259,6 +267,7 @@ fn query_deducted_funds(
     deps: Deps,
     funds: Funds,
     sender: Option<String>,
+    receiver: Option<String>,
 ) -> Result<OnFundsTransferResponse, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     // Check sender for exemption
@@ -268,6 +277,22 @@ fn query_deducted_funds(
             .unwrap_or(false);
 
         // If sender is exempt then do not deduct any funds
+        if is_exempt {
+            return Ok(OnFundsTransferResponse {
+                msgs: vec![],
+                events: vec![],
+                leftover_funds: funds,
+            });
+        }
+    }
+
+    // Check receiver for exemption
+    if let Some(receiver_addr) = receiver {
+        let is_exempt = EXEMPT_ADDRESSES
+            .load(deps.storage, &receiver_addr)
+            .unwrap_or(false);
+
+        // If receiver is exempt then do not deduct any funds
         if is_exempt {
             return Ok(OnFundsTransferResponse {
                 msgs: vec![],
@@ -690,12 +715,35 @@ mod tests {
             address: cw20_address.to_string(),
             amount: Uint128::from(100u128),
         });
+
+        // Test exemption as sender
         let res: OnFundsTransferResponse = from_binary(
             &query(
                 deps.as_ref(),
                 env.clone(),
                 QueryMsg::AndrHook(AndromedaHook::OnFundsTransfer {
                     sender: payee.to_string(),
+                    receiver: owner.to_string(),
+                    payload: to_binary(&true).unwrap(),
+                    amount: sent_amount.clone(),
+                }),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(res.events.len(), 0);
+        assert_eq!(res.msgs.len(), 0);
+        assert_eq!(res.leftover_funds, sent_amount);
+
+        // Test exemption as receiver
+        let res: OnFundsTransferResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                env.clone(),
+                QueryMsg::AndrHook(AndromedaHook::OnFundsTransfer {
+                    sender: owner.to_string(),
+                    receiver: payee.to_string(),
                     payload: to_binary(&true).unwrap(),
                     amount: sent_amount.clone(),
                 }),

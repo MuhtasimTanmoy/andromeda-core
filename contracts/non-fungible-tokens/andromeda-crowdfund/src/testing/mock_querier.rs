@@ -126,6 +126,7 @@ impl WasmMockQuerier {
                     sender: _,
                     payload: _,
                     amount,
+                    ..
                 } => {
                     let (new_funds, msgs): (Funds, Vec<SubMsg>) = match amount {
                         Funds::Native(ref coin) => (

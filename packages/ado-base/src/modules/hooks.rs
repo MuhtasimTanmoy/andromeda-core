@@ -39,6 +39,7 @@ impl<'a> ADOContract<'a> {
         api: &dyn Api,
         querier: &QuerierWrapper,
         sender: String,
+        receiver: String,
         amount: Funds,
         msg: Binary,
     ) -> Result<(Vec<SubMsg>, Vec<Event>, Funds), ContractError> {
@@ -60,6 +61,7 @@ impl<'a> ADOContract<'a> {
                 AndromedaHook::OnFundsTransfer {
                     payload: msg.clone(),
                     sender: sender.clone(),
+                    receiver: receiver.clone(),
                     amount: remainder.clone(),
                 },
                 module_address,
@@ -76,6 +78,7 @@ impl<'a> ADOContract<'a> {
                 AndromedaHook::OnFundsTransfer {
                     payload: to_binary(&events)?,
                     sender,
+                    receiver,
                     amount: remainder.clone(),
                 },
                 receipt_module_address,

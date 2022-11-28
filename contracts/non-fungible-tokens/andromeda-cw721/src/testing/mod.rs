@@ -709,6 +709,7 @@ fn test_modules() {
         sender: "sender".to_string(),
         payload: to_binary(&token_id).unwrap(),
         amount: Funds::Native(coin(100, "uusd")),
+        receiver: "receiver".to_string(),
     });
 
     let res: OnFundsTransferResponse =

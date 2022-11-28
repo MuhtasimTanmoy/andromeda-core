@@ -17,3 +17,6 @@ mod marketplace_app;
 
 #[cfg(test)]
 mod wrapped_cw721_app;
+
+#[cfg(test)]
+mod cw20_rates;

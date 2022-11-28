@@ -147,6 +147,7 @@ fn execute_place_bid(
         deps.storage,
         &deps.querier,
         info.sender.to_string(),
+        token_owner.clone(),
         token_id.clone(),
         Coin {
             denom: coin.denom.clone(),
@@ -252,6 +253,7 @@ fn on_funds_transfer(
     storage: &dyn Storage,
     querier: &QuerierWrapper,
     sender: String,
+    receiver: String,
     token_id: String,
     amount: Coin,
 ) -> Result<Option<OnFundsTransferResponse>, ContractError> {
@@ -264,6 +266,7 @@ fn on_funds_transfer(
                 // usecases in the future, using this contract as sender could allow us to have
                 // separate cases for what the hook should return.
                 sender,
+                receiver,
                 payload: encode_binary(&token_id)?,
                 amount: Funds::Native(amount),
             }))?,

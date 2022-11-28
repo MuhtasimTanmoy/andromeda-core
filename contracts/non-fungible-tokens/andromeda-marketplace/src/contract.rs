@@ -355,6 +355,7 @@ fn purchase_token(
         api,
         querier,
         info.sender.to_string(),
+        state.owner.clone(),
         Funds::Native(total_cost),
         encode_binary(&"")?,
     )?;

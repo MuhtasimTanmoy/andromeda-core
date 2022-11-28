@@ -128,6 +128,15 @@ impl Recipient {
     }
 }
 
+impl Into<String> for Recipient {
+    fn into(self) -> String {
+        match self {
+            Recipient::ADO(ado_recipient) => ado_recipient.address.identifier,
+            Recipient::Addr(addr) => addr.to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

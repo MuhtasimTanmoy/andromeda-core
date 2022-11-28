@@ -157,6 +157,7 @@ impl WasmMockQuerier {
                     sender: _,
                     payload: _,
                     amount,
+                    ..
                 } => {
                     // Hardcodes a royalty of 10% and tax of 10%.
                     let (new_funds, msgs): (Funds, Vec<SubMsg>) = match amount {
@@ -259,6 +260,7 @@ impl WasmMockQuerier {
                     sender: _,
                     payload,
                     amount,
+                    ..
                 } => {
                     let events: Vec<Event> = from_binary(&payload).unwrap();
                     let receipt_msg =

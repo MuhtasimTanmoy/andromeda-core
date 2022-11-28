@@ -110,6 +110,7 @@ fn execute_transfer(
         deps.api,
         &deps.querier,
         info.sender.to_string(),
+        recipient.clone(),
         Funds::Cw20(Cw20Coin {
             address: env.contract.address.to_string(),
             amount,
@@ -188,6 +189,7 @@ fn execute_send(
         deps.api,
         &deps.querier,
         info.sender.to_string(),
+        contract.clone(),
         Funds::Cw20(Cw20Coin {
             address: env.contract.address.to_string(),
             amount,

@@ -10,6 +10,7 @@ pub enum AndromedaHook {
     },
     OnFundsTransfer {
         sender: String,
+        receiver: String,
         payload: Binary,
         amount: Funds,
     },
