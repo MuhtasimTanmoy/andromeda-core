@@ -446,7 +446,11 @@ fn purchase_tokens(
         api,
         querier,
         info.sender.to_string(),
-        state.recipient.clone().into(),
+        state.recipient.get_addr(
+            api,
+            querier,
+            ADOContract::default().get_app_contract(storage)?,
+        )?,
         Funds::Native(state.price.clone()),
         encode_binary(&"")?,
     )?;
