@@ -147,7 +147,7 @@ fn execute_place_bid(
         deps.storage,
         &deps.querier,
         info.sender.to_string(),
-        token_owner.clone(),
+        token_owner,
         token_id.clone(),
         Coin {
             denom: coin.denom.clone(),
