@@ -1,8 +1,8 @@
 use crate::state::{Config, CONFIG, EXEMPT_ADDRESSES};
 use ado_base::ADOContract;
 use andromeda_modules::rates::{
-    calculate_fee, ExecuteMsg, InstantiateMsg, MigrateMsg, PaymentAttribute, PaymentsResponse,
-    QueryMsg, RateInfo,
+    calculate_fee, ExecuteMsg, ExemptionsResponse, InstantiateMsg, MigrateMsg, PaymentAttribute,
+    PaymentsResponse, QueryMsg, RateInfo,
 };
 use common::{
     ado_base::{
@@ -14,11 +14,12 @@ use common::{
     parse_message, Funds,
 };
 use cosmwasm_std::{
-    attr, coin, ensure, entry_point, Binary, Coin, Deps, DepsMut, Env, Event, MessageInfo,
+    attr, coin, ensure, entry_point, Binary, Coin, Deps, DepsMut, Env, Event, MessageInfo, Order,
     Response, StdError, SubMsg,
 };
 use cw2::{get_contract_version, set_contract_version};
 use cw20::Cw20Coin;
+use cw_storage_plus::Bound;
 use cw_utils::nonpayable;
 use semver::Version;
 
@@ -193,6 +194,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractErro
         QueryMsg::AndrQuery(msg) => handle_andromeda_query(deps, env, msg),
         QueryMsg::AndrHook(msg) => handle_andromeda_hook(deps, msg),
         QueryMsg::Payments {} => encode_binary(&query_payments(deps)?),
+        QueryMsg::Exemptions { limit, start_after } => {
+            encode_binary(&query_exemptions(deps, limit, start_after.as_deref())?)
+        }
+        QueryMsg::IsExempt { address } => encode_binary(&query_is_exempt(deps, address)?),
     }
 }
 
@@ -224,6 +229,31 @@ fn query_payments(deps: Deps) -> Result<PaymentsResponse, ContractError> {
     let rates = config.rates;
 
     Ok(PaymentsResponse { payments: rates })
+}
+
+fn query_is_exempt(deps: Deps, address: String) -> Result<bool, ContractError> {
+    Ok(EXEMPT_ADDRESSES
+        .load(deps.storage, &address)
+        .unwrap_or(false))
+}
+
+const MAX_LIMIT: u32 = 100;
+const DEFAULT_LIMIT: u32 = 50;
+fn query_exemptions(
+    deps: Deps,
+    limit: Option<u32>,
+    start_after: Option<&str>,
+) -> Result<ExemptionsResponse, ContractError> {
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
+    let start = start_after.map(Bound::exclusive);
+
+    let exemptions: Vec<String> = EXEMPT_ADDRESSES
+        .keys(deps.storage, start, None, Order::Ascending)
+        .take(limit)
+        .map(|k| Ok(k?))
+        .collect::<Result<Vec<String>, StdError>>()?;
+
+    Ok(ExemptionsResponse { exemptions })
 }
 
 fn query_deducted_funds(
@@ -682,6 +712,6 @@ mod tests {
         let exemption_msg = ExecuteMsg::RemoveExemption {
             address: payee.to_string(),
         };
-        execute(deps.as_mut(), env.clone(), info, exemption_msg).unwrap();
+        execute(deps.as_mut(), env, info, exemption_msg).unwrap();
     }
 }

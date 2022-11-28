@@ -411,7 +411,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractErro
         QueryMsg::Sale { asset } => query_sale(deps, asset),
         QueryMsg::TokenAddress {} => query_token_address(deps),
         QueryMsg::SaleAssets { start_after, limit } => {
-            query_sale_assets(deps, start_after.as_ref().map(|x| &**x), limit)
+            query_sale_assets(deps, start_after.as_deref(), limit)
         }
         QueryMsg::AndrQuery(andr_msg) => handle_andromeda_query(deps, env, andr_msg),
     }

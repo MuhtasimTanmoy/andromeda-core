@@ -32,6 +32,13 @@ pub enum QueryMsg {
     AndrHook(AndromedaHook),
     #[returns(PaymentsResponse)]
     Payments {},
+    #[returns(bool)]
+    IsExempt { address: String },
+    #[returns(ExemptionsResponse)]
+    Exemptions {
+        limit: Option<u32>,
+        start_after: Option<String>,
+    },
 }
 
 #[cw_serde]
@@ -39,6 +46,10 @@ pub struct PaymentsResponse {
     pub payments: Vec<RateInfo>,
 }
 
+#[cw_serde]
+pub struct ExemptionsResponse {
+    pub exemptions: Vec<String>,
+}
 #[cw_serde]
 pub struct RateInfo {
     pub rate: Rate,
