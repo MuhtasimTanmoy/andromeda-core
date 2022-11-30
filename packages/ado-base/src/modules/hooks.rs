@@ -32,7 +32,8 @@ impl<'a> ADOContract<'a> {
         Ok(resp)
     }
 
-    /// Sends the provided hook message to all registered modules
+    /// Queries all modules for any required funds transfers for a set amount
+    /// Returns any messages for transferring funds, any attached events and the remaining funds
     pub fn on_funds_transfer(
         &self,
         storage: &dyn Storage,
@@ -72,6 +73,7 @@ impl<'a> ADOContract<'a> {
                 events = [events, mod_resp.events].concat();
             }
         }
+        // Generate a receipt including events from all previous hooks
         if let Some(receipt_module_address) = receipt_module_address {
             let mod_resp: Option<OnFundsTransferResponse> = hook_query(
                 querier,

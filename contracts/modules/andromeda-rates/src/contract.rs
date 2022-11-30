@@ -7,7 +7,7 @@ use andromeda_modules::rates::{
 use common::{
     ado_base::{
         hooks::{AndromedaHook, OnFundsTransferResponse},
-        AndromedaMsg, AndromedaQuery, InstantiateMsg as BaseInstantiateMsg,
+        AndromedaQuery, InstantiateMsg as BaseInstantiateMsg,
     },
     deduct_funds, encode_binary,
     error::ContractError,
@@ -60,25 +60,12 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::AndrReceive(msg) => execute_andr_receive(deps, env, info, msg),
+        ExecuteMsg::AndrReceive(msg) => {
+            ADOContract::default().execute(deps, env, info, msg, execute)
+        }
         ExecuteMsg::UpdateRates { rates } => execute_update_rates(deps, info, rates),
         ExecuteMsg::AddExemption { address } => execute_add_exemption(deps, info, address),
         ExecuteMsg::RemoveExemption { address } => execute_remove_exemption(deps, info, address),
-    }
-}
-
-fn execute_andr_receive(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: AndromedaMsg,
-) -> Result<Response, ContractError> {
-    match msg {
-        AndromedaMsg::Receive(data) => {
-            let rates: Vec<RateInfo> = parse_message(&data)?;
-            execute_update_rates(deps, info, rates)
-        }
-        _ => ADOContract::default().execute(deps, env, info, msg, execute),
     }
 }
 
@@ -208,6 +195,7 @@ fn handle_andromeda_query(
 ) -> Result<Binary, ContractError> {
     match msg {
         AndromedaQuery::Get(data) => {
+            // Assume default query is to check required funds
             let funds: Funds = parse_message(&data)?;
             encode_binary(&Some(query_deducted_funds(deps, funds, None, None)?))
         }
@@ -310,6 +298,7 @@ fn query_deducted_funds(
     };
     let mut leftover_funds = vec![coin.clone()];
     for rate_info in config.rates.iter() {
+        // Add payment type and description to events for tx records
         let event_name = if rate_info.is_additive {
             "tax"
         } else {
@@ -319,16 +308,21 @@ fn query_deducted_funds(
         if let Some(desc) = &rate_info.description {
             event = event.add_attribute("description", desc);
         }
+
+        // Rate value may be a primitive value, use app contract to validate the rate amount
         let app_contract = ADOContract::default().get_app_contract(deps.storage)?;
         let rate = rate_info
             .rate
             .validate(deps.api, &deps.querier, app_contract)?;
         let fee = calculate_fee(rate, &coin)?;
+
         for reciever in rate_info.recipients.iter() {
+            // If the fee is a tax then record the amount deducted for the tax
             if !rate_info.is_additive {
                 deduct_funds(&mut leftover_funds, &fee)?;
                 event = event.add_attribute("deducted", fee.to_string());
             }
+            // Record an event for the payment
             event = event.add_attribute(
                 "payment",
                 PaymentAttribute {
@@ -433,42 +427,6 @@ mod tests {
         //Why does this test error?
         //let payments = query(deps.as_ref(), mock_env(), QueryMsg::Payments {}).is_err();
         //assert_eq!(payments, true);
-    }
-
-    #[test]
-    fn test_andr_receive() {
-        let mut deps = mock_dependencies();
-        let env = mock_env();
-        let owner = "owner";
-        let info = mock_info(owner, &[]);
-        let rates = vec![
-            RateInfo {
-                rate: Rate::from(Decimal::percent(10)),
-                is_additive: true,
-                description: Some("desc1".to_string()),
-                recipients: vec![Recipient::Addr("".into())],
-            },
-            RateInfo {
-                rate: Rate::Flat(Coin {
-                    amount: Uint128::from(10u128),
-                    denom: "uusd".to_string(),
-                }),
-                is_additive: false,
-                description: Some("desc2".to_string()),
-                recipients: vec![Recipient::Addr("".into())],
-            },
-        ];
-        let msg = InstantiateMsg { rates: vec![] };
-        let _res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
-
-        let msg =
-            ExecuteMsg::AndrReceive(AndromedaMsg::Receive(Some(encode_binary(&rates).unwrap())));
-
-        let res = execute(deps.as_mut(), env, info, msg).unwrap();
-        assert_eq!(
-            Response::new().add_attributes(vec![attr("action", "update_rates")]),
-            res
-        );
     }
 
     #[test]

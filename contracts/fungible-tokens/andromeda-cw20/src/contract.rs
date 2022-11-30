@@ -86,13 +86,11 @@ pub fn execute(
         ExecuteMsg::Transfer { recipient, amount } => {
             execute_transfer(deps, env, info, recipient, amount)
         }
-        ExecuteMsg::Burn { amount } => execute_burn(deps, env, info, amount),
         ExecuteMsg::Send {
             contract,
             amount,
             msg,
         } => execute_send(deps, env, info, contract, amount, msg),
-        ExecuteMsg::Mint { recipient, amount } => execute_mint(deps, env, info, recipient, amount),
         ExecuteMsg::AndrReceive(msg) => contract.execute(deps, env, info, msg, execute),
         _ => Ok(execute_cw20(deps, env, info, msg.into())?),
     }
@@ -162,20 +160,6 @@ fn transfer_tokens(
     Ok(())
 }
 
-fn execute_burn(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    amount: Uint128,
-) -> Result<Response, ContractError> {
-    Ok(execute_cw20(
-        deps,
-        env,
-        info,
-        Cw20ExecuteMsg::Burn { amount },
-    )?)
-}
-
 fn execute_send(
     deps: DepsMut,
     env: Env,
@@ -226,23 +210,9 @@ fn execute_send(
     Ok(resp)
 }
 
-fn execute_mint(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    recipient: String,
-    amount: Uint128,
-) -> Result<Response, ContractError> {
-    Ok(execute_cw20(
-        deps,
-        env,
-        info,
-        Cw20ExecuteMsg::Mint { recipient, amount },
-    )?)
-}
-
 /// Removes transfer messages for any CW20 tokens and calls transfer for the rates amount
 /// CW20 rates are assumed to be for the current CW20 contract
+/// Non transfer messages are attached as sub messages
 fn filter_out_cw20_messages(
     msgs: Vec<SubMsg>,
     storage: &mut dyn Storage,
@@ -259,6 +229,7 @@ fn filter_out_cw20_messages(
                 from_binary::<Cw20ExecuteMsg>(&exec_msg)
             {
                 if !amount.is_zero() {
+                    // Due to this behaviour both royalties and taxes will have the same outcome, the added payment from a royalty is assumed as part of the transferred amount
                     transfer_tokens(storage, sender, &api.addr_validate(&recipient)?, amount)?;
                 }
             } else {
