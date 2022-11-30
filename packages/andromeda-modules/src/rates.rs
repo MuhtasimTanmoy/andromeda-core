@@ -14,9 +14,18 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     AndrReceive(AndromedaMsg),
-    UpdateRates { rates: Vec<RateInfo> },
-    AddExemption { address: String },
-    RemoveExemption { address: String },
+    /// Updates the current rates for the contract
+    UpdateRates {
+        rates: Vec<RateInfo>,
+    },
+    /// Adds an exemption to the rates
+    AddExemption {
+        address: String,
+    },
+    /// Removes an exemption from the rates
+    RemoveExemption {
+        address: String,
+    },
 }
 
 #[cw_serde]
@@ -26,14 +35,19 @@ pub struct MigrateMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
+    /// Used by other ADOs for common message type
     #[returns(AndromedaQuery)]
     AndrQuery(AndromedaQuery),
+    /// Used by other ADOs to query the rates contract as a module
     #[returns(AndromedaHook)]
     AndrHook(AndromedaHook),
+    /// Returns all rates
     #[returns(PaymentsResponse)]
     Payments {},
+    /// Checks if an address is exempt
     #[returns(bool)]
     IsExempt { address: String },
+    /// Returns all exemptions for the contract
     #[returns(ExemptionsResponse)]
     Exemptions {
         limit: Option<u32>,
@@ -53,8 +67,10 @@ pub struct ExemptionsResponse {
 #[cw_serde]
 pub struct RateInfo {
     pub rate: Rate,
+    /// Whether the rate is added to the payment or deducted from it
     pub is_additive: bool,
     pub description: Option<String>,
+    /// The recipients of the extracted funds
     pub recipients: Vec<Recipient>,
 }
 
@@ -65,6 +81,7 @@ pub enum Rate {
     Flat(Coin),
     /// A percentage fee
     Percent(PercentRate),
+    /// A pointer to a primitive contract
     External(PrimitivePointer),
 }
 
