@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstantiateMsg",
+  "type": "object",
+  "required": [
+    "token_address"
+  ],
+  "properties": {
+    "token_address": {
+      "description": "Address of the CW20 token to be sold",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AndrAddress"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "AndrAddress": {
+      "type": "object",
+      "required": [
+        "identifier"
+      ],
+      "properties": {
+        "identifier": {
+          "description": "Can be either an address or identifier of an ADO in a app.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

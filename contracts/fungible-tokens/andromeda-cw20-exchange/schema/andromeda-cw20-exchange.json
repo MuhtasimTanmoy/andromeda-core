@@ -629,6 +629,35 @@
         "additionalProperties": false
       },
       {
+        "type": "object",
+        "required": [
+          "sale_assets"
+        ],
+        "properties": {
+          "sale_assets": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              "start_after": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
         "description": "Andromeda Query Messages",
         "type": "object",
         "required": [
@@ -1073,6 +1102,23 @@
           "type": "string"
         }
       }
+    },
+    "sale_assets": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SaleAssetsResponse",
+      "type": "object",
+      "required": [
+        "assets"
+      ],
+      "properties": {
+        "assets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "token_address": {
       "$schema": "http://json-schema.org/draft-07/schema#",
