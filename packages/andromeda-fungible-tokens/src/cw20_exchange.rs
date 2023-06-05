@@ -37,7 +37,7 @@ pub struct Sale {
     pub recipient: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[cw_serde]
 pub enum Cw20HookMsg {
     /// Starts a sale
     StartSale {
